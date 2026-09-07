@@ -212,6 +212,73 @@ let parsing_rules_with_atd_tests () =
 (* Tests *)
 (*****************************************************************************)
 
+let yaml_unicode_tests () =
+  [
+    t ~tags:(Test_tags.tags_of_lang Lang.Yaml)
+      "YAML preserves Unicode values and byte locations" (fun () ->
+        let value = "tøkęn_śęçrėt_ẃïth_ŭñïçődė_123456" in
+        let check bom newline =
+          let first = bom ^ "é: \"" ^ value ^ "\"" ^ newline in
+          let text = first ^ "other: \"😀\"" ^ newline in
+          let expected =
+            [
+              ("é", "é", String.length bom, 1, String.length bom);
+              ( value,
+                "\"" ^ value ^ "\"",
+                String.length bom + 4,
+                1,
+                String.length bom + 4 );
+              ("other", "other", String.length first, 2, 0);
+              ("😀", "\"😀\"", String.length first + 7, 2, 7);
+            ]
+          in
+          let check_ast ast =
+            let actual = ref [] in
+            let visitor =
+              object
+                inherit [_] AST_generic.iter_no_id_info as super
+
+                method! visit_literal () literal =
+                  (match literal with
+                  | AST_generic.String (_, (value, tok), _) ->
+                      let { Tok.str; pos } = Tok.unsafe_loc_of_tok tok in
+                      actual :=
+                        (value, str, pos.bytepos, pos.line, pos.column)
+                        :: !actual
+                  | _ -> ());
+                  super#visit_literal () literal
+              end
+            in
+            visitor#visit_any () ast;
+            let actual = List.rev !actual in
+            Alcotest.(check int)
+              "scalar count" (List.length expected) (List.length actual);
+            List.iter2
+              (fun (value, raw, offset, line, column)
+                   ( actual_value,
+                     actual_raw,
+                     actual_offset,
+                     actual_line,
+                     actual_column ) ->
+                Alcotest.(check string) "scalar value" value actual_value;
+                Alcotest.(check string) "token source" raw actual_raw;
+                Alcotest.(check int) "byte offset" offset actual_offset;
+                Alcotest.(check int) "line" line actual_line;
+                Alcotest.(check int) "byte column" column actual_column)
+              expected actual
+          in
+          UTmp.with_temp_file ~contents:text ~suffix:".yaml" (fun file ->
+              check_ast (AST_generic.Pr (Yaml_to_generic.program file));
+              check_ast
+                (AST_generic.Pr
+                   (Yaml_to_generic.parse_yaml_file ~is_target:false file text)));
+          check_ast (Yaml_to_generic.any text)
+        in
+        List.iter
+          (fun bom -> List.iter (check bom) [ "\n"; "\r\n" ])
+          [ ""; "\239\187\191" ]);
+  ]
+
 let make_tests langs_with_tolerance =
   List_.flatten
     [
@@ -219,6 +286,7 @@ let make_tests langs_with_tolerance =
       parsing_error_tests ();
       parsing_rules_tests ();
       parsing_rules_with_atd_tests ();
+      yaml_unicode_tests ();
     ]
 
 let langs_with_error_tolerance =
@@ -247,6 +315,7 @@ let langs_with_error_tolerance =
     (Lang.Jsonnet, Strict);
     (Lang.Dart, Strict);
     (Lang.Json, Strict);
+    (Lang.Yaml, Strict);
     (* TODO: Move_on_sui has non-.move files in its test dir (TODO/) *)
     (* (Lang.Move_on_sui, Strict); *)
     (Lang.Ql, Strict);

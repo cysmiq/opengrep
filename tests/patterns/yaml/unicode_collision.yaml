@@ -1,0 +1,6 @@
+entries:
+  # MATCH:
+  - token: "é"
+  - token: "%j"
+  # MATCH:
+  - token: "\u00e9"

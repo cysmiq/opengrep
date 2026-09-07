@@ -1,0 +1,6 @@
+entries:
+  # MATCH:
+  - token: "tøkęn_śęçrėt_ẃïth_ŭñïçődė_123456"
+  - token: "another_value_123456"
+  # MATCH:
+  - token: 'tøkęn_śęçrėt_ẃïth_ŭñïçődė_123456'
