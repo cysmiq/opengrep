@@ -80,7 +80,7 @@ url = https://github.com/opengrep/semgrep-elixir.git
 
 [submodule "OSS/languages/swift/tree-sitter/semgrep-swift"]
 path = languages/swift/tree-sitter/semgrep-swift
-url = https://github.com/opengrep/semgrep-swift.git
+url = https://github.com/cysmiq/semgrep-swift.git
 
 [submodule "OSS/cli/src/semgrep/semgrep_interfaces"]
 path = cli/src/semgrep/semgrep_interfaces
