@@ -57,6 +57,8 @@ type env = {
   text : string;
   (* function *)
   bytepos_to_pos : (int -> int * int) option;
+  (* libyaml marks count Unicode characters; generic AST locations count bytes. *)
+  mark_to_bytepos : M.t -> M.t;
   (* From yaml.mli: "[parser] tracks the state of generating {!Event.t}
    * values" *)
   parser : S.parser;
@@ -191,6 +193,12 @@ let do_parse env =
       in
       raise (Parsing_error.Other_error (prefix ^ str, tok))
   | Result.Ok (ev, pos) ->
+      let pos =
+        {
+          E.start_mark = env.mark_to_bytepos pos.start_mark;
+          end_mark = env.mark_to_bytepos pos.end_mark;
+        }
+      in
       env.last_event <- Some (ev, pos);
       (ev, pos)
 
@@ -596,29 +604,32 @@ let preprocess_yaml str =
   in
   String.concat "\n" (process_lines lines [] [])
 
-let mask_unicode str =
-  (* The YAML parser returns the charpos as the number of unicode (not 8-bit)
-     characters. However, the bytepos_to_pos function expects the bytepos
-     to be the number of 8-bit characters. This difference causes incorrect
-     line/col to be assigned to the end tokens of mappings after unicode
-     characters. *)
-  (* Note that the YAML parser does return a correct line and col, which we
-     use everywhere else. However, it gives an exclusive end when returning
-     the token that ends a mapping/sequence/other bracket, whereas Semgrep
-     expects an inclusive end. To adjust this, we currently need the bytepos *)
-  let char_range = 128 in
-  let control_char_start_range = 32 in
-  let control_char_end_range = 1 in
-  let available_range =
-    char_range - (control_char_end_range + control_char_start_range)
-  in
-  String.of_seq
-    (Seq.map
-       (fun c ->
-         let code = Char.code c in
-         if code < char_range then c
-         else Char.chr ((code mod available_range) + control_char_start_range))
-       (String.to_seq str))
+let mark_to_bytepos str =
+  (* Parse the original text: replacing UTF-8 bytes can introduce YAML syntax
+     and conflate distinct scalar values. Only translate the resulting marks.
+     ASCII input needs no table. *)
+  if String.for_all (fun c -> Char.code c < 128) str then Fun.id
+  else
+    let length = String.length str in
+    (* libyaml consumes an initial UTF-8 BOM without counting it in its marks. *)
+    let bom = if String.starts_with "\239\187\191" str then 3 else 0 in
+    let offsets = Array.make (length + 1) length in
+    let byte = ref bom in
+    let character = ref 0 in
+    while !byte < length do
+      offsets.(!character) <- !byte;
+      let decoded = String.get_utf_8_uchar str !byte in
+      byte := !byte + Uchar.utf_decode_length decoded;
+      incr character
+    done;
+    fun ({ M.index; line; column } : M.t) ->
+      let byte_index = offsets.(index) in
+      let byte_column = byte_index - offsets.(index - column) in
+      {
+        M.index = byte_index;
+        line;
+        column = (byte_column + if line = 0 then bom else 0);
+      }
 
 (*****************************************************************************)
 (* Entry points *)
@@ -636,6 +647,7 @@ let parse_yaml_file ~is_target (file : Fpath.t) str =
       file;
       text = str;
       bytepos_to_pos;
+      mark_to_bytepos = mark_to_bytepos str;
       parser;
       anchors = Hashtbl.create 1;
       last_event = None;
@@ -649,13 +661,14 @@ let parse_yaml_file ~is_target (file : Fpath.t) str =
 
 let any str =
   let file = Fpath.v "<pattern_file>" in
-  let str = preprocess_yaml (mask_unicode str) in
+  let str = preprocess_yaml str in
   let parser = get_res file (S.parser str) in
   let env =
     {
       file;
       text = str;
       bytepos_to_pos = None;
+      mark_to_bytepos = mark_to_bytepos str;
       parser;
       anchors = Hashtbl.create 1;
       last_event = None;
@@ -666,5 +679,5 @@ let any str =
   make_pattern_expr xs
 
 let program (file : Fpath.t) =
-  let str = mask_unicode (UFile.read_file file) in
+  let str = UFile.read_file file in
   parse_yaml_file ~is_target:true file str
