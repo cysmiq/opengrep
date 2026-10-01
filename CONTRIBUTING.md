@@ -18,6 +18,13 @@ request build succeeded, the target branch build also succeeds after the merge.
 
 As a corrolary of the above: please do not merge `main` into your PR branch.
 
+In the CYSMIQ fork, an upstream synchronization may import the original
+`opengrep/opengrep` history with a merge commit whose first parent is the
+current fork `main` and whose second parent belongs to upstream `main`.
+The history check verifies these parents against the original repository;
+other fork-owned merge commits still require a rebase. This preserves
+upstream commit identities and our fork fixes without rewriting either history.
+
 ### Clean and informative commits
 
 Contributors are requested to submit PRs with a well-organised, clean sequence 
