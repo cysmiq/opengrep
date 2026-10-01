@@ -52,7 +52,11 @@ let rec mark_first_instr_ancestor (cfg : IL.cfg) i =
   | NInstr instr -> (
       match instr with
       | { i = Assign (_, { eorig = SameAs e; _ }); _ }
-      | { i = Call _; iorig = SameAs e } ->
+      | { i = Call _; iorig = SameAs e }
+      (* an interpolated string, a 'yield' that has a value, a lambda *)
+      | { i = CallSpecial (_, (Concat, _), _); iorig = SameAs e }
+      | { i = CallSpecial (Some _, (Yield, _), _); iorig = SameAs e }
+      | { i = AssignAnon _; iorig = SameAs e } ->
           Log.debug (fun m ->
             m "IMPL_RET_MARK: flag set on %s"
               (match AST_generic_helpers.range_of_any_opt (E e) with
@@ -108,6 +112,9 @@ let mark_implicit_return lang ast =
              mark_implicit_return_fdef lang ~tok fdef
          | LambdaKind ->
              (* Lambdas expressions tend to always support implicit returns,
-              * even in languages that require explicit returns like Java. *)
+              * even in languages that require explicit returns like Java.
+              * An [Arrow] is not marked: a block body returns only what it
+              * says, and an expression body comes from the parser as a
+              * [Return] (JS, PHP). *)
              mark_implicit_return_fdef lang ~tok fdef
          | __else__ -> ())

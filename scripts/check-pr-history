@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Check fork-owned history, allowing a verified upstream import from the PR base.
+set -euo pipefail
+
+base=$(git rev-parse --verify "$1^{commit}")
+head=$(git rev-parse --verify "$2^{commit}")
+upstream=${3:-}
+if [[ -n "$upstream" ]]; then
+  upstream=$(git rev-parse --verify "$upstream^{commit}")
+fi
+git merge-base --is-ancestor "$base" "$head" || {
+  echo "PR must contain the current base; rebase before merging." >&2
+  exit 1
+}
+
+exclude=("^$base")
+if [[ -n "$upstream" ]]; then
+  exclude+=("^$upstream")
+fi
+
+while read -r commit; do
+  [[ -n "$commit" ]] || continue
+  read -r -a parents <<< "$(git show -s --format=%P "$commit")"
+  if [[ -n "$upstream" && ${#parents[@]} -eq 2 && ${parents[0]} == "$base" ]] \
+    && git merge-base --is-ancestor "${parents[1]}" "$upstream"; then
+    echo "Verified upstream import: $commit"
+  else
+    echo "Unexpected fork-owned merge commit: $commit; rebase the PR." >&2
+    exit 1
+  fi
+done < <(git rev-list --min-parents=2 "$head" "${exclude[@]}")
+echo "OK: fork-owned commits follow the history policy"

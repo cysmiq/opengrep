@@ -40,11 +40,16 @@ val default : conf
 (* used with max_log_list_entries *)
 val too_much_data : string
 
+val is_interfile_rule_id :
+  taint_interfile:bool -> Rule.hrules -> Rule_ID.t -> bool
+
 (* Aborts on a destination we will not write to: a URL, a symlink, or one
  * named by both -o and a --<format>-output flag. Called at CLI-parsing time
  * so that the scan does not run first.
  *)
 val check_destinations : conf -> unit
+
+val setup_stdout : conf -> unit
 
 (* Whether any of the outputs in conf wants the nosem-ignored matches, so
  * that they must be left in the results instead of being filtered out.
@@ -61,6 +66,7 @@ val keeps_ignores : conf -> bool
  * to log in and try Pro.
  *)
 val output_result :
+  keep_ignored:bool ->
   < Cap.stdout > ->
   conf ->
   Profiler.t ->
@@ -69,10 +75,10 @@ val output_result :
 
 (* helper used in output_result() and other callsites.
  * This handles nosemgrep, interpolating messages, and more.
+ * keep_ignored keeps the matches a 'nosemgrep' comment suppressed; they are
+ * dropped after the match-based ids are indexed, so that the index counts
+ * them as pysemgrep's did.
  *)
-val preprocess_result : fixed_lines:bool -> Core_runner.result -> Out.cli_output
+val preprocess_result :
+  fixed_lines:bool -> keep_ignored:bool -> Core_runner.result -> Out.cli_output
 
-(* used by RPC_return.ml for Vim/Emacs/Junit_xml/Gitlab_xxx for now *)
-val format :
-  ?profiler : Profiler.t ->
-  Output_format.t -> Out.cli_output -> string list

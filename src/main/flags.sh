@@ -26,7 +26,7 @@
 #     archive (`.a`).
 #
 #   - Other cases should not typically require changes. If you have made
-#     non-standard changes to the Dockerfile or Alpine build (e.g., building a
+#     non-standard changes to the Alpine build (e.g., building a
 #     library from source), Alpine may require tweaks.
 
 set -eu
@@ -161,7 +161,6 @@ else
             "-lmirage_crypto_ec_stubs"
             "-lmirage_crypto_rng_unix_stubs"
             "-lmirage_crypto_stubs"
-            "-lmtime_clock_stubs"
             "-lmurmur3_stubs"
             "-lpcre2_stubs"
             "-lptime_clock_stubs"
