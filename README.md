@@ -9,6 +9,31 @@
   </a>
 </p>
 
+## cysmiq fork
+
+This is cysmiq's fork of [opengrep/opengrep](https://github.com/opengrep/opengrep). [code-analysis](https://github.com/cysmiq/code-analysis) builds opengrep from it.
+
+**Branches**
+
+- `main` follows upstream `main`, the 2.0 line, which has no Python CLI.
+  - code-analysis does not ship it, and new cysmiq changes do not go there.
+  - It still has the two fixes below and the PR history check (`f5e67746`), which landed before release branches existed.
+- `release/1.x` (currently `release/1.31`) is what code-analysis ships: an upstream `v1.x` tag plus our fixes.
+  - code-analysis pins one of its commits with `OPENGREP_SOURCE_COMMIT` in `Dockerfile` and `Dockerfile.code-debian`.
+  - It stays on 1.x because it installs the Python CLI wrapper (`cli/`).
+  - Never force-push or delete a release branch. code-analysis fetches its pinned commit by sha.
+
+**A new fix:** branch from the current release branch, open a PR into it, and merge. Then set the code-analysis pin to the merge commit.
+
+**A new upstream 1.x release:** create `release/1.<n>` from the upstream tag. Re-apply, with `git cherry-pick -x`, the fixes upstream does not have yet. Open a PR into the new branch and merge it. Then bump the pin.
+
+**Upstreaming:** PRs go to upstream `main`, rebased, with no merge commits (see `CONTRIBUTING.md`). There is no CLA or sign-off. Once an upstream 1.x release contains a fix, leave it out of the next release branch.
+
+| Fix | On `release/1.31` | Upstream status |
+|---|---|---|
+| YAML: preserve Unicode values and byte locations | `25c710c5` (was `3b496e1f`) | Not upstream. Ready apart from rewording the commit in upstream's `yaml: ...` style. |
+| Swift: initialise and reset the raw-string scanner state | `11fe528d` (was `2d3cae59`) | Not upstream. Pins [cysmiq/semgrep-swift](https://github.com/cysmiq/semgrep-swift) `6c6d4d76` (branch `codex/fix-swift-parser-state`). First, PR the two-line `lib/scanner.c` fix to opengrep/semgrep-swift on its `opengrep/main` branch. Then bump the submodule here, keeping the opengrep URL, together with our tests. alex-pinkus/tree-sitter-swift already fixed the `calloc(0)` but still lacks the reset. |
+
 ### Welcome to Opengrep, a fork of Semgrep, under the LGPL 2.1 license
 
 **Opengrep is the most advanced open source SAST engine.**
