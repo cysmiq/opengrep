@@ -1,0 +1,12 @@
+plain: tøkęn_śęçrėt_ẃïth_ŭñïçődė_123456
+quoted: "tøkęn_śęçrėt_ẃïth_ŭñïçődė_123456"
+single: 'café ś😀'
+literal: |
+  ś😀
+folded: >-
+  ś
+  😀
+anchor: &saved "ś😀"
+alias: *saved
+tagged: !text "ś😀"
+nested: {é: ["ś", "😀"], after: "correct"}
